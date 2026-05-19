@@ -1,0 +1,13 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # منع تصفح المجلدات واستعراض ملفاتها
+    Options -Indexes
+
+    # التحقق من أن الطلب ليس ملفاً حقيقياً أو مجلداً حقيقياً
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # تمرير الرابط كاملاً كـ Query String إلى ملف index.php
+    RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]
+</IfModule>
