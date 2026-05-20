@@ -42,4 +42,14 @@ class Controller {
             die("الواجهة (View) غير موجودة.");
         }
     }
+
+    # دالة مساعدة للتحقق مما إذا كان المستخدم مسجل الدخول حالياً
+    public static function isLoggedIn() {
+        return isset($_SESSION['user_id']);
+    }
+
+    # دالة مساعدة لجلب دور المستخدم الحالي (user أم admin)
+    public static function getUserRole() {
+        return isset($_SESSION['user_role']) ? $_SESSION['user_role'] : null;
+    }
 }

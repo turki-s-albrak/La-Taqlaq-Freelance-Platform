@@ -7,5 +7,16 @@
 
 <!-- استدعاء جافاسكريبت بوتستراب المحلي المدمج -->
 <script src="<?php echo URLROOT; ?>/js/bootstrap.bundle.min.js"></script>
+
+<!-- سد ثغرة زر الرجوع في المتصفح (BFCache Eviction) -->
+<script>
+    window.addEventListener('pageshow', function (event) {
+        // إذا كانت الصفحة قد تم جلبها من كاش المتصفح (عند الضغط على زر الرجوع)
+        if (event.persisted || (typeof window.performance != "undefined" && window.performance.navigation.type === 2)) {
+            // إجبار المتصفح على إعادة جلب البيانات الحقيقية من السيرفر فوراً
+            window.location.reload();
+        }
+    });
+</script>
 </body>
 </html>
