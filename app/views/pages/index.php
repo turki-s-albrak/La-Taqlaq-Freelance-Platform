@@ -5,7 +5,7 @@
             <h1 class="display-5 fw-bold text-dark mb-3"><?php echo $title; ?></h1>
             <p class="col-md-8 fs-5 mx-auto text-muted"><?php echo $description; ?></p>
             <div class="d-flex justify-content-center gap-3 mt-4">
-                <a href="#" class="btn btn-primary btn-lg px-4">ابدأ كمستقل الآن</a>
+                <a href="#" class="btn btn-outline-secondary btn-lg px-4">قم بما تتقن واكسب الان </a>
                 <a href="#" class="btn btn-outline-secondary btn-lg px-4">أضف مشروعك الأول</a>
             </div>
         </div>

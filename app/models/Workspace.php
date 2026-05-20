@@ -53,4 +53,21 @@ class Workspace {
         $this->db->bind(':escrowId', $escrowId);
         return $this->db->execute();
     }
+
+    # دالة تسجيل النزاع وتجميد الخزنة المالية في قاعدة البيانات
+    public function createDispute($escrowId, $userId, $reason) {
+        // أ. تحويل حالة الخزنة الموحدة إلى متنازع عليها (disputed)
+        $this->db->query("UPDATE escrow SET status = 'disputed' WHERE escrowId = :escrowId");
+        $this->db->bind(':escrowId', $escrowId);
+        if (!$this->db->execute()) return false;
+
+        // ب. إنشاء سجل النزاع في جدول disputes
+        $this->db->query("INSERT INTO disputes (escrowId, raised_by, reason, status) 
+                          VALUES (:escrowId, :raised_by, :reason, 'open')");
+        $this->db->bind(':escrowId', $escrowId);
+        $this->db->bind(':raised_by', $userId);
+        $this->db->bind(':reason', $reason);
+        
+        return $this->db->execute();
+    }
 }

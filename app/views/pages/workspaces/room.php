@@ -8,20 +8,36 @@
                     <h2 class="fw-bold text-dark mb-1">عقد مشروع: <?php echo $escrow['orderTitle']; ?></h2>
                     <small class="text-muted">مبلغ الخزنة المحجوز: <strong class="text-success">$<?php echo number_format($escrow['price'], 2); ?></strong></small>
                 </div>
-                
-                <div class="d-flex gap-2">
+
+                <!-- أزرار الإجراءات وحالات العقد المتكاملة حياً -->
+                <div class="d-flex gap-2 flex-wrap align-items-center">
                     <?php if($escrow['status'] === 'in_progress'): ?>
                         <?php if($_SESSION['user_id'] == $escrow['clientId']): ?>
-                            <form action="<?php echo URLROOT; ?>/workspaces/room/<?php echo $escrow['escrowId']; ?>" method="POST" onsubmit="return confirm('هل أنت متأكد من استلام العمل؟ سيتم إطلاق الأموال المحجوزة لحساب المستقل فوراً ولا يمكن التراجع.');">
-                                <button type="submit" name="complete_project" class="btn btn-success fw-bold px-4">✓ استلام المشروع وإطلاق الأموال</button>
+                            <form action="<?php echo URLROOT; ?>/workspaces/room/<?php echo $escrow['escrowId']; ?>" method="POST" onsubmit="return confirm('هل أنت متأكد من استلام العمل؟ سيتم إطلاق الأموال المحجوزة لحساب المستقل فوراً ولا يمكن التراجع.');" class="d-inline">
+                                <button type="submit" name="complete_project" class="btn btn-success fw-bold btn-sm px-3">✓ استلام المشروع وإطلاق الأموال</button>
                             </form>
-                        <?php else: ?>
-                            <span class="badge bg-warning text-dark p-2 fs-6">بانتظار تسليم العمل للعميل...</span>
                         <?php endif; ?>
+                        
+                        <!-- زر فتح نزاع رسمي يظهر لكلا الطرفين (العميل أو المستقل) طالما العقد ساري -->
+                        <button type="button" class="btn btn-outline-danger fw-bold btn-sm px-3" onclick="document.getElementById('dispute-section').classList.toggle('d-none');">
+                            🚨 فتح نزاع وإيقاف العقد
+                        </button>
                     <?php else: ?>
                         <span class="badge bg-secondary p-2 fs-6">حالة العقد الحالية: <?php echo strtoupper($escrow['status']); ?></span>
                     <?php endif; ?>
                 </div>
+            </div>
+            
+            <!-- قسم كتابة سبب النزاع (يفتح ويغلق تلقائياً برمجياً) -->
+            <div id="dispute-section" class="d-none mt-4 p-3 bg-light rounded-3 border border-danger">
+                <h5 class="fw-bold text-danger mb-2">تقديم شكوى ونزاع رسمي للإدارة</h5>
+                <p class="text-muted small mb-3">يرجى كتابة المشكلة بالتفصيل (تأخر التسليم، جودة العمل، إلخ). سيقوم الأدمن بقراءة هذه الرسالة ومراجعة الشات الحلي لحسم المعاملة.</p>
+                <form action="<?php echo URLROOT; ?>/workspaces/raise_dispute/<?php echo $escrow['escrowId']; ?>" method="POST">
+                    <div class="mb-3">
+                        <textarea name="dispute_reason" class="form-control form-control-sm" rows="3" placeholder="اكتب تفاصيل الشكوى هنا..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-danger btn-sm fw-bold px-4">إرسال النزاع وتجميد الأموال فوراً</button>
+                </form>
             </div>
         </div>
     </div>

@@ -133,4 +133,43 @@ class Workspaces extends Controller {
         echo json_encode($messages);
         exit();
     }
+
+    # دالة تمكين العميل أو المستقل من فتح نزاع رسمي على المشروع (نسخة مطابقة لمعيار MVC)
+    public function raise_dispute($escrowId) {
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+
+            // 1. جلب بيانات الخزنة والتحقق من الصلاحية
+            $escrow = $this->workspaceModel->getEscrowById($escrowId);
+            if (!$escrow || $escrow['status'] !== 'in_progress') {
+                $_SESSION['flash_error'] = 'لا يمكن فتح نزاع على هذا العقد حالياً.';
+                header('Location: ' . URLROOT . '/workspaces/room/' . $escrowId);
+                exit();
+            }
+
+            // 2. التحقق من أن القائم بالعملية هو العميل أو المستقل المرتبط بالعقد
+            if ($_SESSION['user_id'] != $escrow['clientId'] && $_SESSION['user_id'] != $escrow['freelancerId']) {
+                $_SESSION['flash_error'] = 'انتهاك أمني: غير مصرح لك بفتح نزاع.';
+                header('Location: ' . URLROOT . '/dashboard');
+                exit();
+            }
+
+            // تصفية حقل سبب النزاع
+            $reason = filter_var(trim($_POST['dispute_reason']), FILTER_SANITIZE_SPECIAL_CHARS);
+            if (empty($reason)) {
+                $_SESSION['flash_error'] = 'يرجى كتابة سبب واضح لفتح النزاع لتتمكن الإدارة من مراجعته.';
+                header('Location: ' . URLROOT . '/workspaces/room/' . $escrowId);
+                exit();
+            }
+
+            // 3. استدعاء الموديل لتنفيذ المعاملة المترابطة خلف الكواليس
+            if ($this->workspaceModel->createDispute($escrowId, $_SESSION['user_id'], $reason)) {
+                $_SESSION['flash_success'] = 'تم تقديم طلب النزاع الرسمي بنجاح، وتجميد الخزنة المالية. تم تحويل القضية لمدير النظام .';
+            } else {
+                $_SESSION['flash_error'] = 'حدث خطأ غير متوقع أثناء تسجيل النزاع، يرجى المحاولة لاحقاً.';
+            }
+
+            header('Location: ' . URLROOT . '/workspaces/room/' . $escrowId);
+            exit();
+        }
+    }
 }
