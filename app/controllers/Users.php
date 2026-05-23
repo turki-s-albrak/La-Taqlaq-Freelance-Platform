@@ -18,7 +18,7 @@ class Users extends Controller {
             // تصفية المدخلات النصية لحماية الموقع من ثغرات الحقن النصي XSS
             $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_SPECIAL_CHARS);
 
-            // تجهيز البيانات القادمة من الفورم
+            // تجهيز البيانات القادمة من الفورم 
             $data = [
                 'userName'   => trim($_POST['userName']),
                 'email'      => trim($_POST['email']),
@@ -143,7 +143,11 @@ class Users extends Controller {
 
         // إرسال رسالة ترحيبية وتوجيهه إلى الكنترولر الافتراضي (الرئيسية)
         $_SESSION['flash_success'] = 'مرحباً بك مجدداً يا ' . $user['userName'] . '!';
-        header('Location: ' . URLROOT);
+        if ($user['role'] === 'admin') {
+            header('Location: ' . URLROOT . '/admin/dashboard'); // توجيه الأدمن إلى لوحة التحكم الخاصة به
+        } else {
+            header('Location: ' . URLROOT . '/dashboard'); // توجيه المستخدم العادي إلى لوحة التحكم الرئيسية
+        }
         exit();
     }
 
@@ -161,7 +165,7 @@ class Users extends Controller {
         // التوجيه لصفحة تسجيل الدخول مع رسالة ومضية
         session_start(); // فتح جلسة مؤقتة فقط لتمرير رسالة الخروج الومضية
         $_SESSION['flash_success'] = 'تم تسجيل خروجك بنجاح وأمان.';
-        header('Location: ' . URLROOT . '/users/login');
+        header('Location: ' . URLROOT );
         exit();
     }
 
@@ -192,6 +196,74 @@ class Users extends Controller {
             
             header('Location: ' . URLROOT . '/dashboard');
             exit();
+        }
+    }
+
+    # دالة عرض ومعالجة استعادة كلمة المرور عبر الكلمة السرية المشفرة
+    public function forgot_password() {
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+            // تصفية المدخلات
+            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_SPECIAL_CHARS);
+
+            $data = [
+                'email'            => trim($_POST['email']),
+                'secretWord'       => trim($_POST['secretWord']),
+                'new_password'     => trim($_POST['new_password']),
+                'confirm_password' => trim($_POST['confirm_password']),
+                'title'            => 'استعادة كلمة المرور'
+            ];
+
+            // 1. التحقق من الحقول الأساسية
+            if (empty($data['email']) || empty($data['secretWord']) || empty($data['new_password']) || empty($data['confirm_password'])) {
+                $_SESSION['flash_error'] = 'يرجى ملء جميع الحقول المطلوبة.';
+                $this->view('users/forgot_password', $data);
+                return;
+            }
+
+            // 2. التحقق من قوة وتطابق كلمة المرور الجديدة
+            if (strlen($data['new_password']) < 6) {
+                $_SESSION['flash_error'] = 'يجب ألا تقل كلمة المرور الجديدة عن 6 أحرف أو أرقام.';
+                $this->view('users/forgot_password', $data);
+                return;
+            }
+
+            if ($data['new_password'] !== $data['confirm_password']) {
+                $_SESSION['flash_error'] = 'كلمات المرور الجديدة غير متطابقة.';
+                $this->view('users/forgot_password', $data);
+                return;
+            }
+
+            // 3. التحقق الأمني من البريد والكلمة السرية (عبر الموديل الذي يفك التشفير)
+            $user = $this->userModel->verifySecretWord($data['email'], $data['secretWord']);
+
+            if (!$user) {
+                // رسالة مبهمة أمنياً لمنع الاستكشاف
+                $_SESSION['flash_error'] = 'عذراً، البريد الإلكتروني أو الكلمة السرية غير صحيحة.';
+                $this->view('users/forgot_password', $data);
+                return;
+            }
+
+            // 4. تنفيذ التحديث النهائي في قاعدة البيانات
+            if ($this->userModel->updatePassword($user['userId'], $data['new_password'])) {
+                $_SESSION['flash_success'] = 'تم تحديث كلمة المرور بنجاح! يمكنك الآن تسجيل الدخول.';
+                header('Location: ' . URLROOT . '/users/login');
+                exit();
+            } else {
+                $_SESSION['flash_error'] = 'حدث خطأ غير متوقع أثناء تحديث البيانات.';
+                $this->view('users/forgot_password', $data);
+            }
+
+        } else {
+            // طلب GET عادي لعرض الصفحة
+            $data = [
+                'email'            => '',
+                'secretWord'       => '',
+                'new_password'     => '',
+                'confirm_password' => '',
+                'title'            => 'استعادة كلمة المرور'
+            ];
+
+            $this->view('users/forgot_password', $data);
         }
     }
 }

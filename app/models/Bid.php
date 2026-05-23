@@ -38,4 +38,13 @@ class Bid {
         $this->db->bind(':message', $data['message']);
         return $this->db->execute();
     }
+
+    # تحديث بيانات العرض (للمستقل)
+    public function updateBid($bidId, $price, $message) {
+        $this->db->query("UPDATE bids SET price = :price, message = :message WHERE bidId = :bidId");
+        $this->db->bind(':price', $price);
+        $this->db->bind(':message', $message);
+        $this->db->bind(':bidId', $bidId);
+        return $this->db->execute();
+    }
 }

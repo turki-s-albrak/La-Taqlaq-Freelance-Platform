@@ -49,10 +49,10 @@ class AdminModel {
         return $this->db->execute();
     }
 
-    # --- [3] قسم إدارة المشاريع (Orders Moderation) ---
+# --- [3] قسم إدارة المشاريع (Orders Moderation) ---
     public function getAllOrdersWithStatus() {
-        // جلب المشاريع ومعرفة حالتها (إذا كان لها سجل في الخزنة فهي قائمة/مقبولة، وإلا فهي لم تقبل بعد)
-        $this->db->query("SELECT orders.*, users.userName, escrow.status as escrow_status 
+        // جلب المشاريع، ومعرفة حالتها، وجلب السعر الفعلي للعقد (escrowPrice) إن وجد لتفادي الخلط
+        $this->db->query("SELECT orders.*, users.userName, escrow.status as escrow_status, escrow.price as escrowPrice 
                           FROM orders 
                           JOIN users ON orders.clientId = users.userId
                           LEFT JOIN escrow ON orders.orderId = escrow.orderId
@@ -113,20 +113,20 @@ class AdminModel {
         return $this->db->execute();
     }
 
-    # --- القرار المالي 2: إنصاف المستقل (إطلاق الأموال المحجوزة لرصيد المستقل) ---
+    # --- القرار المالي 2 المطور: إنصاف المستقل وصرف الأموال له ---
     public function resolvePayFreelancer($escrowId, $freelancerId, $price, $disputeId) {
-        // أ. تحويل المال للمستقل
+        // 1. تحديث رصيد المستقل وزيادته بقيمة العقد
         $this->db->query("UPDATE users SET balance = balance + :price WHERE userId = :freelancerId");
         $this->db->bind(':price', $price);
         $this->db->bind(':freelancerId', $freelancerId);
         if (!$this->db->execute()) return false;
 
-        // ب. إغلاق العقد في الخزنة كـ مكتمل
+        // 2. تحديث حالة العقد في الخزنة إلى مكتمل (completed) ليغلق تلقائياً
         $this->db->query("UPDATE escrow SET status = 'completed' WHERE escrowId = :escrowId");
         $this->db->bind(':escrowId', $escrowId);
         if (!$this->db->execute()) return false;
 
-        // ج. تحديث سجل النزاع بحسم القرار وإغلاقه
+        // 3. تحديث سجل النزاع بحسم القرار وإغلاقه
         $this->db->query("UPDATE disputes SET admin_decision = 'pay_freelancer', status = 'resolved' WHERE disputeId = :disputeId");
         $this->db->bind(':disputeId', $disputeId);
         return $this->db->execute();

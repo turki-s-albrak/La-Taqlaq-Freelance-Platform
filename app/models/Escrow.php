@@ -38,4 +38,19 @@ class Escrow {
         $this->db->bind(':bidId', $bidId);
         return $this->db->execute();
     }
+
+    # فحص هل للمشروع عقد مالي مسبق في الخزنة؟ (تعيد true أو false فقط)
+    public function hasExistingEscrow($orderId) {
+        $this->db->query("SELECT * FROM escrow WHERE orderId = :orderId");
+        $this->db->bind(':orderId', $orderId);
+        $this->db->execute();
+        return ($this->db->rowCount() > 0);
+    }
+
+    # 2. جلب تفاصيل العقد بالـ ID (تستخدم في صفحة تفاصيل المشروع بعد قبول العرض)
+    public function getBidById($bidId) {
+        $this->db->query("SELECT * FROM bids WHERE bidId = :bidId");
+        $this->db->bind(':bidId', $bidId);
+        return $this->db->single();
+    }
 }

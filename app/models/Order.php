@@ -41,4 +41,27 @@ class Order {
         $this->db->bind(':id', $id);
         return $this->db->single();
     }
+
+    # حذف المشروع نهائياً (للعميل)
+    public function deleteOrder($orderId) {
+        $this->db->query("DELETE FROM orders WHERE orderId = :orderId");
+        $this->db->bind(':orderId', $orderId);
+        return $this->db->execute();
+    }
+
+    # جلب جميع مشاريع العميل مع حالة التعاقد (إن وجدت) واسم المستقل المنفذ
+    public function getClientProjects($clientId) {
+        $this->db->query("SELECT orders.*, 
+                                 escrow.status as escrowStatus, 
+                                 escrow.price as finalPrice,
+                                 users.userName as freelancerName 
+                          FROM orders 
+                          LEFT JOIN escrow ON orders.orderId = escrow.orderId 
+                          LEFT JOIN users ON escrow.freelancerId = users.userId 
+                          WHERE orders.clientId = :clientId 
+                          ORDER BY orders.created_at DESC");
+        
+        $this->db->bind(':clientId', $clientId);
+        return $this->db->resultSet();
+    }
 }

@@ -42,7 +42,13 @@
 
                         <!-- زر الإرسال -->
                         <button type="submit" class="btn btn-primary w-100 py-2 fw-bold">إنشاء الحساب</button>
+
+                        <!-- زر اذا كان لديك حساب بالفعل -->
+                        <div class="text-center border-top pt-3 mt-4">
+                        <p class="small text-muted mb-0">لديك حساب بالفعل؟ <a href="<?php echo URLROOT; ?>/users/login" class="text-decoration-none fw-bold">سجل دخولك من هنا</a></p>
+                        </div>
                     </form>
+
                 </div>
             </div>
         </div>

@@ -1,4 +1,4 @@
-<footer class="bg-dark text-light py-4 mt-5">
+<footer class="bg-dark text-light py-4 mt-auto">
     <div class="container text-center">
         <p class="mb-1">&copy; <?php echo date('Y'); ?> منصة لا تقلق - جميع الحقوق محفوظة.</p>
         <small class="text-muted">مشروع ويب آمن مبني بمعمارية MVC المخصصة</small>

@@ -93,8 +93,11 @@ class Orders extends Controller {
     public function show($id) {
         // 1. جلب تفاصيل المشروع
         $order = $this->orderModel->getOrderById($id);
+        
         if (!$order) {
-            die("المشروع المطلوب غير موجود.");
+            $_SESSION['flash_error'] = 'عذراً، المشروع الذي تبحث عنه غير موجود أو تم حذفه.';
+            header('Location: ' . URLROOT . '/orders');
+            exit();
         }
 
         // معالجة إرسال عرض جديد (POST)
@@ -149,16 +152,35 @@ class Orders extends Controller {
             // طلب GET العادي: جلب العروض الحالية لعرضها في الأسفل
             $bids = $this->bidModel->getBidsByOrderId($id);
 
+            // --- [التعديل المعماري النظيف: تجهيز البيانات هنا بدلاً من الواجهة] ---
+            $hasActiveEscrow = false;
+            $myBid = null;
+
+            foreach($bids as $b) {
+                // التحقق من وجود عقد نشط (لمنع العميل من حذف المشروع)
+                if($b['status'] == 'accepted') {
+                    $hasActiveEscrow = true;
+                }
+                // البحث عن عرض المستقل الحالي (لتفعيل فورم التعديل)
+                if(isset($_SESSION['user_id']) && $b['freelancerId'] == $_SESSION['user_id']) {
+                    $myBid = $b;
+                }
+            }
+
+            // تمرير جميع البيانات جاهزة ونظيفة للواجهة
             $data = [
-                'order' => $order,
-                'bids'  => $bids
+                'order'           => $order,
+                'bids'            => $bids,
+                'hasActiveEscrow' => $hasActiveEscrow,
+                'myBid'           => $myBid
             ];
 
             $this->view('orders/show', $data);
         }
     }
 
-    # دالة معالجة قبول العرض وحجز الأموال في الخزنة الآمنة
+
+    # دالة معالجة قبول العرض وحجز الأموال في الخزنة الآمنة (النسخة المحمية من التكرار)
     public function accept($bidId) {
         // حماية دلالية: يجب أن يكون الطلب POST لحظر التلاعب عبر الروابط المباشرة
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -167,11 +189,8 @@ class Orders extends Controller {
             $escrowModel = $this->model('Escrow');
             $userModel = $this->model('User');
 
-            // 1. جلب تفاصيل العرض المحال وقاعدة البيانات للتحقق
-            $this->db = new Database(); // فحص سريع داخلي
-            $this->db->query("SELECT * FROM bids WHERE bidId = :bidId");
-            $this->db->bind(':bidId', $bidId);
-            $bid = $this->db->single();
+            // 1. جلب تفاصيل العرض صمتاً عبر الموديل المخصص للتحقق
+            $bid = $escrowModel->getBidById($bidId);
 
             if (!$bid || $bid['status'] !== 'pending') {
                 $_SESSION['flash_error'] = 'عذراً، هذا العرض غير متاح للقبول حالياً.';
@@ -179,7 +198,14 @@ class Orders extends Controller {
                 exit();
             }
 
-            // 2. جلب المشروع المرتبط للتأكد أن من يضغط الزر هو العميل صاحب المشروع نفسه!
+            //  2. الفحص الحاسم: سؤال الموديل إن كان للمشروع عقد مسبق لمنع تكرار البيانات
+            if ($escrowModel->hasExistingEscrow($bid['orderId'])) {
+                $_SESSION['flash_error'] = 'حظر مالي: هذا المشروع لديه عقد مالي نشط بالفعل في الخزنة، ولا يمكن قبول عروض أخرى!';
+                header('Location: ' . URLROOT . '/orders/show/' . $bid['orderId']);
+                exit();
+            }
+
+            // 3. جلب المشروع المرتبط للتأكد أن من يضغط الزر هو العميل صاحب المشروع
             $order = $this->orderModel->getOrderById($bid['orderId']);
             if ($order['clientId'] != $_SESSION['user_id']) {
                 $_SESSION['flash_error'] = 'انتهاك أمني: لا تمتلك الصلاحية لقبول عروض هذا المشروع!';
@@ -187,21 +213,21 @@ class Orders extends Controller {
                 exit();
             }
 
-            // 3. --- الـ Edge Case المالية الأهم: فحص رصيد العميل بدقة ---
+            // 4. فحص رصيد العميل بدقة
             $clientData = $userModel->findUserByEmail($_SESSION['user_email']);
             
             if ($clientData['balance'] < $bid['price']) {
-                // منع العملية وإظهار رسالة ومضية صارمة
                 $_SESSION['flash_error'] = 'فشل قبول العرض! رصيدك الحالي ($' . number_format($clientData['balance'], 2) . ') لا يغطي قيمة العرض ($' . number_format($bid['price'], 2) . '). يرجى شحن حسابك أولاً.';
                 header('Location: ' . URLROOT . '/orders/show/' . $bid['orderId']);
                 exit();
             }
 
-            // 4. تنفيذ المعاملة المالية وسلسلة التحديثات في الخزنة
+            // 5. تنفيذ المعاملة المالية وسلسلة التحديثات في الخزنة
             if ($escrowModel->acceptBidAndLockFunds($bid['orderId'], $order['clientId'], $bid['freelancerId'], $bid['price'], $bidId)) {
-                $_SESSION['flash_success'] = 'تم قبول العرض بنجاح! وتم خصم المبلغ وحجزه في الخزنة الآمنة (Escrow)، وبدأت مساحة العمل.';
-            } else {
-                $_SESSION['flash_error'] = 'حدث خطأ غير متوقع أثناء معالجة العملية المالية، يرجى المحاولة لاحقاً.';
+                $_SESSION['flash_success'] = 'تم قبول العرض بنجاح! وتم خصم المبلغ وحجزه في الخزنة الآمنة. مرحباً بك في مساحة العمل.';
+                //  التوجيه فوراً لغرفة العمل 
+                header('Location: ' . URLROOT . '/workspaces/room/' . $bid['orderId']);
+                exit();
             }
 
             header('Location: ' . URLROOT . '/orders/show/' . $bid['orderId']);
@@ -211,5 +237,68 @@ class Orders extends Controller {
             header('Location: ' . URLROOT . '/orders');
             exit();
         }
+    }
+
+    # دالة حذف المشروع (للعميل فقط وقبل التعاقد)
+    public function delete($orderId) {
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+            $order = $this->orderModel->getOrderById($orderId);
+            $escrowModel = $this->model('Escrow');
+
+            // حماية 1: التأكد من ملكية المشروع
+            if (!$order || $order['clientId'] != $_SESSION['user_id']) {
+                $_SESSION['flash_error'] = 'لا تملك صلاحية حذف هذا المشروع.';
+                header('Location: ' . URLROOT . '/orders');
+                exit();
+            }
+
+            // حماية 2: التأكد من عدم وجود عقد مالي (لا تحذف مشروعاً قيد التنفيذ)
+            if ($escrowModel->hasExistingEscrow($orderId)) {
+                $_SESSION['flash_error'] = 'لا يمكن حذف المشروع لأنه يحتوي على عقد مالي نشط.';
+                header('Location: ' . URLROOT . '/orders/show/' . $orderId);
+                exit();
+            }
+
+            if ($this->orderModel->deleteOrder($orderId)) {
+                $_SESSION['flash_success'] = 'تم إلغاء وحذف المشروع بنجاح.';
+            }
+            header('Location: ' . URLROOT . '/orders');
+            exit();
+        }
+    }
+
+    # دالة تعديل العرض المالي للمستقل
+    public function edit_bid($bidId, $orderId) {
+        if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+            $_POST = filter_input_array(INPUT_POST, FILTER_SANITIZE_SPECIAL_CHARS);
+            $price = floatval($_POST['price']);
+            $message = trim($_POST['message']);
+
+            // التحقق من الحقول
+            if ($price <= 0 || empty($message)) {
+                $_SESSION['flash_error'] = 'يرجى إدخال بيانات عرض صحيحة.';
+                header('Location: ' . URLROOT . '/orders/show/' . $orderId);
+                exit();
+            }
+
+            if ($this->bidModel->updateBid($bidId, $price, $message)) {
+                $_SESSION['flash_success'] = 'تم تعديل عرضك المالي بنجاح.';
+            }
+            header('Location: ' . URLROOT . '/orders/show/' . $orderId);
+            exit();
+        }
+    }
+
+    # دالة عرض صفحة "مشاريعي" الخاصة بالعميل
+    public function my_projects() {
+        // جلب جميع مشاريع العميل (النشطة، قيد التنفيذ، والمكتملة)
+        $projects = $this->orderModel->getClientProjects($_SESSION['user_id']);
+
+        $data = [
+            'page_title' => 'مشاريعي وإدارة العقود',
+            'projects'   => $projects
+        ];
+
+        $this->view('orders/my_projects', $data);
     }
 }

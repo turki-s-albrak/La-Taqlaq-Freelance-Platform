@@ -11,11 +11,21 @@ class Workspace {
 
     # 1. جلب بيانات سجل الخزنة بدقة للتأكد من أطراف المشروع
     public function getEscrowById($escrowId) {
-        $this->db->query("SELECT escrow.*, orders.title as orderTitle, orders.description as orderDesc 
+        $this->db->query("SELECT escrow.*, escrow.price as escrowPrice, orders.title as orderTitle, orders.description as orderDesc 
                           FROM escrow 
                           JOIN orders ON escrow.orderId = orders.orderId 
                           WHERE escrow.escrowId = :escrowId");
         $this->db->bind(':escrowId', $escrowId);
+        return $this->db->single();
+    }
+
+    # جلب بيانات سجل الخزنة بناءً على رقم المشروع (orderId) بدلاً من (escrowId) لضمان التزامن
+    public function getEscrowByOrderId($orderId) {
+        $this->db->query("SELECT escrow.*, escrow.price as escrowPrice, orders.title as orderTitle, orders.description as orderDesc 
+                          FROM escrow 
+                          JOIN orders ON escrow.orderId = orders.orderId 
+                          WHERE escrow.orderId = :orderId");
+        $this->db->bind(':orderId', $orderId);
         return $this->db->single();
     }
 
@@ -69,5 +79,18 @@ class Workspace {
         $this->db->bind(':reason', $reason);
         
         return $this->db->execute();
+    }
+
+    # جلب جميع مساحات العمل (العقود) الخاصة بمستقل معين (تم حل مشكلة التاريخ)
+    public function getFreelancerWorkspaces($freelancerId) {
+        $this->db->query("SELECT escrow.*, orders.title as orderTitle, orders.created_at as orderDate, users.userName as clientName 
+                          FROM escrow 
+                          JOIN orders ON escrow.orderId = orders.orderId 
+                          JOIN users ON escrow.clientId = users.userId 
+                          WHERE escrow.freelancerId = :freelancerId 
+                          ORDER BY escrow.escrowId DESC");
+        
+        $this->db->bind(':freelancerId', $freelancerId);
+        return $this->db->resultSet();
     }
 }

@@ -4,10 +4,11 @@
  */
 class Admin extends Controller {
     private $adminModel;
+    private $workspaceModel; // أضفناه للتحقق من العقود المالية قبل الحذف
 
     public function __construct() {
         // --- 🔒 بوابة التأمين الصارمة (The Security Gate) ---
-        // فحص: إذا لم يكن مسجلاً، أو كان مسجلاً ولكن دورة ليس 'admin'، اطرده فوراً!
+        // فحص: إذا لم يكن مسجلاً، أو كان مسجلاً ولكن دوره ليس 'admin'، اطرده فوراً!
         if (!Controller::isLoggedIn() || $_SESSION['user_role'] !== 'admin') {
             // فتح جلسة مؤقتة إن لم تكن نشطة لتمرير الرسالة التحذيرية
             if (session_status() === PHP_SESSION_NONE) session_start();
@@ -16,8 +17,9 @@ class Admin extends Controller {
             exit();
         }
 
-        // تهيئة موديل الإدارة
+        // تهيئة موديل الإدارة والموديلات المساعدة
         $this->adminModel = $this->model('AdminModel');
+        $this->workspaceModel = $this->model('Workspace'); 
     }
 
     # 1. الصفحة الرئيسية للإدارة (الملخص والإحصائيات)
@@ -58,9 +60,9 @@ class Admin extends Controller {
     // دالة معالجة حظر/حذف مستخدم
     public function ban_user($userId) {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-            // منع الأدمن من حظر نفسه بالخطأ (Edge Case ذكي!)
+            // منع الأدمن من حظر نفسه بالخطأ
             if ($userId == $_SESSION['user_id']) {
-                $_SESSION['flash_error'] = 'حظر أمني: لا يمكنك حظر أو حذف حسابك الشخصي الحلي!';
+                $_SESSION['flash_error'] = 'حظر أمني: لا يمكنك حظر أو حذف حسابك الشخصي الحالي!';
                 header('Location: ' . URLROOT . '/admin/users');
                 exit();
             }
@@ -73,7 +75,7 @@ class Admin extends Controller {
         }
     }
 
-    # 3. صفحة إدارة ومراقبة المشاريع وحذف غير اللائق منها
+    # 3. صفحة إدارة ومراقبة المشاريع
     public function projects() {
         $projects = $this->adminModel->getAllOrdersWithStatus();
 
@@ -85,9 +87,18 @@ class Admin extends Controller {
         $this->view('admin/projects', $data);
     }
 
-    // دالة معالجة حذف مشروع غير لائق
+    // دالة معالجة حذف مشروع (مع الحماية المالية المعمارية)
     public function delete_project($orderId) {
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+            
+            // 🚨 حماية مالية: فحص ما إذا كان المشروع يحتوي على عقد مالي نشط أو نزاع
+            $escrow = $this->workspaceModel->getEscrowByOrderId($orderId);
+            if ($escrow && in_array($escrow['status'], ['in_progress', 'disputed'])) {
+                $_SESSION['flash_error'] = 'حظر مالي: لا يمكنك حذف مشروع يحتوي على أموال محجوزة أو نزاع قائم! قم بحل النزاع أولاً.';
+                header('Location: ' . URLROOT . '/admin/projects');
+                exit();
+            }
+
             if ($this->adminModel->deleteOrder($orderId)) {
                 $_SESSION['flash_success'] = 'تم حذف المشروع وتطهير المحتوى بنجاح.';
             } else {
@@ -108,16 +119,19 @@ class Admin extends Controller {
         $this->view('admin/disputes', $data);
     }
 
-    # 5. غرفة معاينة النزاع (قراءة الرسائل واتخاذ القرار المالي)
+    # 5. غرفة معاينة النزاع (التحكيم)
     public function review_dispute($disputeId) {
         $dispute = $this->adminModel->getDisputeById($disputeId);
+        
+        // 🚨 التعديل المعماري: ارتداد رشيق بدلاً من الشاشة البيضاء (die)
         if (!$dispute) {
-            die("النزاع المطلوب غير موجود.");
+            $_SESSION['flash_error'] = 'عذراً، النزاع المطلوب غير موجود أو تم حسمه مسبقاً.';
+            header('Location: ' . URLROOT . '/admin/disputes');
+            exit();
         }
 
-        // استدعاء موديل مساحة العمل بشكل جانبي لجلب رسائل الشات السرية بين الطرفين للرقابة!
-        $workspaceModel = $this->model('Workspace');
-        $chatMessages = $workspaceModel->getWorkspaceMessages($dispute['escrowId']);
+        // استدعاء موديل مساحة العمل لجلب رسائل الشات للرقابة
+        $chatMessages = $this->workspaceModel->getWorkspaceMessages($dispute['escrowId']);
 
         // معالجة اتخاذ القرار (POST)
         if ($_SERVER['REQUEST_METHOD'] == 'POST') {

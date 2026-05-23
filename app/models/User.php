@@ -65,4 +65,33 @@ class User {
         
         return $this->db->execute();
     }
+
+    # 4. التحقق من الكلمة السرية (بما أنها مشفرة بـ BCRYPT)
+    public function verifySecretWord($email, $secretWord) {
+        // جلب المستخدم عبر الإيميل أولاً
+        $user = $this->findUserByEmail($email);
+
+        if (!$user) {
+            return false; // المستخدم غير موجود
+        }
+
+        // التحقق من مطابقة الكلمة السرية المدخلة مع المشفرة في القاعدة
+        if (password_verify($secretWord, $user['secretWord'])) {
+            return $user; // نجاح المطابقة
+        } else {
+            return false; // الكلمة السرية خاطئة
+        }
+    }
+
+    # 5. تحديث كلمة المرور الجديدة وتشفيرها
+    public function updatePassword($userId, $newPassword) {
+        // تشفير كلمة المرور الجديدة قبل الحفظ
+        $hashed_password = password_hash($newPassword, PASSWORD_BCRYPT);
+
+        $this->db->query("UPDATE users SET password = :password WHERE userId = :userId");
+        $this->db->bind(':password', $hashed_password);
+        $this->db->bind(':userId', $userId);
+        
+        return $this->db->execute();
+    }
 }

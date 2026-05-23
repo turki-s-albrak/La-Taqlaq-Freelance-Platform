@@ -5,7 +5,7 @@
             <p class="text-muted small mb-0">ابحث عن المشروع المناسب لمهاراتك وقدم عرضك الآن بأمان</p>
         </div>
         <!-- زر سريع لنشر مشروع جديد -->
-        <a href="<?php echo URLROOT; ?>/orders/create" class="btn btn-primary fw-bold btn-md px-4">انشر مشروعاً</a>
+        <a href="<?php echo URLROOT; ?>/orders/create" class="btn btn-primary fw-bold shadow-sm">➕ نشر مشروع جديد</a>
     </div>
 
     <!-- فحص Edge Case: إذا كان السوق فارغاً ولا توجد مشاريع منشورة بعد -->
