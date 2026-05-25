@@ -1,13 +1,13 @@
-<div class="container d-flex flex-column justify-content-center align-items-center" style="min-height: 75vh;">
+<div class="container d-flex flex-column justify-content-center align-items-center my-5" style="min-height: 75vh;">
     
     <div class="text-center mb-4">
         <h1 class="fw-bold text-primary mb-2">مرحباً بعودتك!</h1>
         <p class="text-muted">سجل دخولك لمتابعة أعمالك ومشاريعك "</p>
     </div>
 
-    <div class="col-12 col-md-8 col-lg-5 col-xl-4">
+    <div class="col-12 col-md-8 col-lg-6 col-xl-5">
         <div class="card shadow-lg border-0 p-4 p-md-5 bg-white rounded-4 auth-card">
-            <div class="card-body p-0">
+            <div class="card-body p-0 ">
                 
                 <h4 class="text-center fw-bold text-dark mb-4"><?php echo $title; ?></h4>
                 
